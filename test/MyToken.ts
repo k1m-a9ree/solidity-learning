@@ -1,6 +1,6 @@
 import hre from "hardhat";
 import { expect } from "chai";
-import { MyToken } from "../typechain-types";
+import { MyToken, MyToken__factory } from "../typechain-types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 const mintingAmount = 100n;
@@ -89,7 +89,50 @@ describe("My Token", () => {
                 signer1.address, 
                 hre.ethers.parseUnits("1", decimals))
             ).to.be.revertedWith("insufficient allowance");
-        })
-    })
+        });
 
-})
+        // 과제
+        it("should emit Approval and transfer 2MT", async () => {
+            const signer0 = signers[0];
+            const signer1 = signers[1];
+
+            // signer1이 signer0 계좌에서 3MT만큼 가져갈 수 있게 함
+            await expect(
+                myTokenC.connect(signer0).approve( // connect를 안써도 signer0인건 알지만, 걍 명시하기 위해 사용했음. 성능 차이가 있으려나?
+                    signer1.address, 
+                    hre.ethers.parseUnits("3", decimals)
+                )
+            ).to.emit(
+                myTokenC, "Approval"
+            ).withArgs(
+                signer1.address, 
+                hre.ethers.parseUnits("3", decimals)
+            );
+
+            // signer1이 signer0 계좌에서 2MT만큼 가져감
+            await expect(
+                myTokenC.connect(signer1).transferFrom(
+                    signer0.address, 
+                    signer1.address,
+                    hre.ethers.parseUnits("2", decimals)
+                )
+            ).to.emit(
+                myTokenC, "Transfer"
+            ).withArgs(
+                signer0.address, 
+                signer1.address,
+                hre.ethers.parseUnits("2", decimals)
+            );
+
+            // 그럼 한 번 더 2MT 가져갈려고 하면 이제 1MT만 허용되므로 거절되겠네
+            await expect(
+                myTokenC.connect(signer1).transferFrom(
+                    signer0.address, 
+                    signer1.address,
+                    hre.ethers.parseUnits("2", decimals)
+                )
+            ).to.be.revertedWith("insufficient allowance");
+        });
+    });
+
+});
